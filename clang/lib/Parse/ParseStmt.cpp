@@ -265,6 +265,9 @@ Retry:
     break;
   case tok::kw_for:                 // C99 6.8.5.3: for-statement
     return ParseForStatement(TrailingElseLoc);
+  case tok::kw_rof:                 // C99 6.8.5.3: for-statement
+    return ParseForStatement(TrailingElseLoc);
+
 
   case tok::kw_goto:                // C99 6.8.6.1: goto-statement
     Res = ParseGotoStatement();
@@ -1748,7 +1751,7 @@ bool Parser::isForRangeIdentifier() {
 /// [C++0x]   expression
 /// [C++0x]   braced-init-list            [TODO]
 StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
-  assert(Tok.is(tok::kw_for) && "Not a for stmt!");
+  assert((Tok.is(tok::kw_for) || Tok.is(tok::kw_rof)) && "Not a for stmt!");
   SourceLocation ForLoc = ConsumeToken();  // eat the 'for'.
 
   SourceLocation CoawaitLoc;

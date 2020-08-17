@@ -1059,6 +1059,7 @@ IdentifierInfo *Parser::ParseObjCSelectorPiece(SourceLocation &SelectorLoc) {
   case tok::kw_false:
   case tok::kw_float:
   case tok::kw_for:
+  case tok::kw_rof:
   case tok::kw_friend:
   case tok::kw_goto:
   case tok::kw_if:
