@@ -4431,7 +4431,8 @@ public:
                                   Stmt *LoopVar,
                                   SourceLocation ColonLoc, Expr *Collection,
                                   SourceLocation RParenLoc,
-                                  BuildForRangeKind Kind);
+                                  BuildForRangeKind Kind,
+                                  bool isRof = false);
   StmtResult BuildCXXForRangeStmt(SourceLocation ForLoc,
                                   SourceLocation CoawaitLoc,
                                   Stmt *InitStmt,
@@ -4440,7 +4441,8 @@ public:
                                   Expr *Cond, Expr *Inc,
                                   Stmt *LoopVarDecl,
                                   SourceLocation RParenLoc,
-                                  BuildForRangeKind Kind);
+                                  BuildForRangeKind Kind,
+                                  bool isRof = false);
   StmtResult FinishCXXForRangeStmt(Stmt *ForRange, Stmt *Body);
 
   StmtResult ActOnGotoStmt(SourceLocation GotoLoc,

@@ -2114,7 +2114,7 @@ StmtResult Sema::ActOnCXXForRangeStmt(Scope *S, SourceLocation ForLoc,
                                       SourceLocation CoawaitLoc, Stmt *InitStmt,
                                       Stmt *First, SourceLocation ColonLoc,
                                       Expr *Range, SourceLocation RParenLoc,
-                                      BuildForRangeKind Kind) {
+                                      BuildForRangeKind Kind, bool isRof) {
   if (!First)
     return StmtError();
 
@@ -2177,7 +2177,7 @@ StmtResult Sema::ActOnCXXForRangeStmt(Scope *S, SourceLocation ForLoc,
   StmtResult R = BuildCXXForRangeStmt(
       ForLoc, CoawaitLoc, InitStmt, ColonLoc, RangeDecl.get(),
       /*BeginStmt=*/nullptr, /*EndStmt=*/nullptr,
-      /*Cond=*/nullptr, /*Inc=*/nullptr, DS, RParenLoc, Kind);
+      /*Cond=*/nullptr, /*Inc=*/nullptr, DS, RParenLoc, Kind, isRof);
   if (R.isInvalid()) {
     ActOnInitializerError(LoopVar);
     return StmtError();
@@ -2209,7 +2209,7 @@ BuildNonArrayForRange(Sema &SemaRef, Expr *BeginRange, Expr *EndRange,
   LookupResult BeginMemberLookup(SemaRef, BeginNameInfo,
                                  Sema::LookupMemberName);
   LookupResult EndMemberLookup(SemaRef, EndNameInfo, Sema::LookupMemberName);
-
+assert(0);
   auto BuildBegin = [&] {
     *BEF = BEF_begin;
     Sema::ForRangeStatus RangeStatus =
@@ -2373,7 +2373,8 @@ StmtResult Sema::BuildCXXForRangeStmt(SourceLocation ForLoc,
                                       Stmt *Begin, Stmt *End, Expr *Cond,
                                       Expr *Inc, Stmt *LoopVarDecl,
                                       SourceLocation RParenLoc,
-                                      BuildForRangeKind Kind) {
+                                      BuildForRangeKind Kind, 
+                                      bool isRof) {
   // FIXME: This should not be used during template instantiation. We should
   // pick up the set of unqualified lookup results for the != and + operators
   // in the initial parse.
@@ -2456,11 +2457,6 @@ StmtResult Sema::BuildCXXForRangeStmt(SourceLocation ForLoc,
         if (BeginExpr.isInvalid())
           return StmtError();
       }
-      if (FinishForRangeVarDecl(*this, BeginVar, BeginRangeRef.get(), ColonLoc,
-                                diag::err_for_range_iter_deduction_failure)) {
-        NoteForRangeBeginEndFunction(*this, BeginExpr.get(), BEF_begin);
-        return StmtError();
-      }
 
       // Find the array bound.
       ExprResult BoundExpr;
@@ -2523,15 +2519,28 @@ StmtResult Sema::BuildCXXForRangeStmt(SourceLocation ForLoc,
         // UnqAT is not incomplete and Range is not type-dependent.
         llvm_unreachable("Unexpected array type in for-range");
       }
-
+      int subVal = isRof ? 1 : 0;
+      llvm::APInt Sub = llvm::APInt(Context.getTypeSize(Context.IntTy), subVal);
+      ExprResult TrueBound = ActOnBinOp(S, ColonLoc, tok::minus,
+                      BoundExpr.get(), IntegerLiteral::Create(Context, Sub, Context.IntTy, ColonLoc));
       // end-expr is __range + __bound.
       EndExpr = ActOnBinOp(S, ColonLoc, tok::plus, EndRangeRef.get(),
-                           BoundExpr.get());
+                           TrueBound.get());
       if (EndExpr.isInvalid())
         return StmtError();
-      if (FinishForRangeVarDecl(*this, EndVar, EndExpr.get(), ColonLoc,
+
+      auto BeginVarBind = isRof ? EndExpr.get() : BeginRangeRef.get();
+      auto EndVarBind = isRof ? BeginRangeRef.get() : EndExpr.get();
+
+      if (FinishForRangeVarDecl(*this, BeginVar, BeginVarBind, ColonLoc,
                                 diag::err_for_range_iter_deduction_failure)) {
-        NoteForRangeBeginEndFunction(*this, EndExpr.get(), BEF_end);
+        NoteForRangeBeginEndFunction(*this, BeginVarBind, BEF_begin);
+        return StmtError();
+      }
+
+      if (FinishForRangeVarDecl(*this, EndVar, EndVarBind, ColonLoc,
+                                diag::err_for_range_iter_deduction_failure)) {
+        NoteForRangeBeginEndFunction(*this, EndVarBind, BEF_end);
         return StmtError();
       }
     } else {
@@ -2618,7 +2627,8 @@ StmtResult Sema::BuildCXXForRangeStmt(SourceLocation ForLoc,
       return StmtError();
 
     // Build and check __begin != __end expression.
-    NotEqExpr = ActOnBinOp(S, ColonLoc, tok::exclaimequal,
+    tok::TokenKind cmpTok = isRof ? tok::greaterequal : tok::exclaimequal;
+    NotEqExpr = ActOnBinOp(S, ColonLoc, cmpTok,
                            BeginRef.get(), EndRef.get());
     if (!NotEqExpr.isInvalid())
       NotEqExpr = CheckBooleanCondition(ColonLoc, NotEqExpr.get());
@@ -2640,7 +2650,8 @@ StmtResult Sema::BuildCXXForRangeStmt(SourceLocation ForLoc,
     if (BeginRef.isInvalid())
       return StmtError();
 
-    IncrExpr = ActOnUnaryOp(S, ColonLoc, tok::plusplus, BeginRef.get());
+    tok::TokenKind itTok = isRof ? tok::minusminus : tok::plusplus;  
+    IncrExpr = ActOnUnaryOp(S, ColonLoc, itTok, BeginRef.get());
     if (!IncrExpr.isInvalid() && CoawaitLoc.isValid())
       // FIXME: getCurScope() should not be used during template instantiation.
       // We should pick up the set of unqualified lookup results for operator

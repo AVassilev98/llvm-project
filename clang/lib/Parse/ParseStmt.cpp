@@ -266,7 +266,7 @@ Retry:
   case tok::kw_for:                 // C99 6.8.5.3: for-statement
     return ParseForStatement(TrailingElseLoc);
   case tok::kw_rof:                 // C99 6.8.5.3: for-statement
-    return ParseForStatement(TrailingElseLoc);
+    return ParseForStatement(TrailingElseLoc, true);
 
 
   case tok::kw_goto:                // C99 6.8.6.1: goto-statement
@@ -1750,7 +1750,7 @@ bool Parser::isForRangeIdentifier() {
 /// [C++0x] for-range-initializer:
 /// [C++0x]   expression
 /// [C++0x]   braced-init-list            [TODO]
-StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
+StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc, bool isRof) {
   assert((Tok.is(tok::kw_for) || Tok.is(tok::kw_rof)) && "Not a for stmt!");
   SourceLocation ForLoc = ConsumeToken();  // eat the 'for'.
 
@@ -2020,7 +2020,7 @@ StmtResult Parser::ParseForStatement(SourceLocation *TrailingElseLoc) {
     ForRangeStmt = Actions.ActOnCXXForRangeStmt(
         getCurScope(), ForLoc, CoawaitLoc, FirstPart.get(),
         ForRangeInfo.LoopVar.get(), ForRangeInfo.ColonLoc, CorrectedRange.get(),
-        T.getCloseLocation(), Sema::BFRK_Build);
+        T.getCloseLocation(), Sema::BFRK_Build, isRof);
 
   // Similarly, we need to do the semantic analysis for a for-range
   // statement immediately in order to close over temporaries correctly.
